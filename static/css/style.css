@@ -1,73 +1,46 @@
-/* Style dla Kalendarza Wydarzeń Pogranicza */
+/* Nowoczesny Kalendarz Wydarzeń Pogranicza - Custom Styles */
 
-body {
-    background-color: #f8f9fa;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+/* Ukrywanie scrollbara przy zachowaniu przewijalności */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 
-h1 {
-    color: #2c3e50;
-    font-weight: 600;
-}
-
-#calendar {
-    background-color: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.fc-event {
-    cursor: pointer;
-    border-radius: 4px;
-    padding: 2px 4px;
-}
-
-.fc-event:hover {
-    opacity: 0.8;
-}
-
-.fc-toolbar-title {
-    font-size: 1.5em;
-    font-weight: 600;
-}
-
-.btn-group .btn-check:checked + .btn {
-    background-color: #0d6efd;
-    color: white;
+/* Animacja dla przycisku Zaskocz mnie (opcjonalna, Tailwind ma animate-bounce, ale to jest bardziej subtelne) */
+@keyframes soft-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.9; transform: scale(1.02); }
 }
 
 #surpriseBtn {
-    font-weight: 600;
-    animation: pulse 2s infinite;
+    animation: soft-pulse 3s infinite ease-in-out;
 }
 
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.05);
-    }
-    100% {
-        transform: scale(1);
-    }
+/* Siatka kalendarza - zapewnienie równych odstępów */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: 80px repeat(7, 1fr);
 }
 
-.modal-body {
-    padding: 20px;
+/* Style dla kart wydarzeń */
+.event-card {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.event-detail {
-    margin-bottom: 15px;
+.event-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
-.event-detail strong {
-    color: #495057;
-    display: inline-block;
-    min-width: 100px;
+/* Wiersze czasu w tle kolumn dni */
+.day-column {
+    background-image: linear-gradient(to bottom, transparent 47px, #f1f5f9 47px, #f1f5f9 48px);
+    background-size: 100% 48px;
 }
 
-.input-group {
-    margin-bottom: 10px;
+.dark .day-column {
+    background-image: linear-gradient(to bottom, transparent 47px, #334155 47px, #334155 48px);
 }

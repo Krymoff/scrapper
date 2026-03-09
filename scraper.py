@@ -42,7 +42,9 @@ class EventScraper:
         parsed_date = dateparser.parse(date_str, languages=[language], settings=settings)
         
         if parsed_date:
-            return parsed_date.strftime("%Y-%m-%d")
+            if parsed_date.hour == 0 and parsed_date.minute == 0:
+                return parsed_date.strftime("%Y-%m-%d")
+            return parsed_date.strftime("%Y-%m-%d %H:%M")
         
         return None
     
