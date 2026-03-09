@@ -62,38 +62,54 @@ class EventScraper:
             
             soup = BeautifulSoup(response.content, 'lxml')
             
-            # Szukamy kontenerów z wydarzeniami (dostosuj selektory do rzeczywistej struktury strony)
-            # Przykładowa struktura - może wymagać dostosowania po sprawdzeniu strony
-            event_items = soup.find_all('article') or soup.find_all('div', class_='event')
+            # W nowej strukturze Elementor, wydarzenia są w sekcjach
+            sections = soup.find_all('section', class_='elementor-section')
             
-            for item in event_items:
+            for section in sections:
                 try:
-                    # Tytuł wydarzenia
-                    title_elem = item.find('h2') or item.find('h3') or item.find('a')
-                    title = title_elem.get_text(strip=True) if title_elem else "Brak tytułu"
+                    # Tytuł i Link
+                    title_elem = section.find('h2', class_='elementor-heading-title')
+                    if not title_elem:
+                        continue
+                        
+                    title = title_elem.get_text(strip=True)
+                    if not title or title.lower() in ['wydarzenia', 'kalendarz']:
+                        continue
+                        
+                    link_elem = title_elem.find('a')
+                    source_url = link_elem['href'] if link_elem else url
                     
-                    # Data wydarzenia
-                    date_elem = item.find('time') or item.find(class_='date')
+                    # Data (może być w elementor-headline lub jet-listing-dynamic-field__content)
+                    date_elem = (section.find(class_='elementor-headline') or 
+                                 section.find(class_='jet-listing-dynamic-field__content') or
+                                 section.find(class_='elementor-icon-list-text'))
+                    
                     date_str = date_elem.get_text(strip=True) if date_elem else ""
+                    
+                    # Debug: jeśli date_str zawiera "Czytaj dalej", to szukamy innego elementu
+                    if "czytaj dalej" in date_str.lower():
+                        date_str = ""
                     
                     # Parsujemy datę
                     date = self.parse_date(date_str, language='pl')
                     if not date:
-                        continue  # Pomijamy wydarzenia bez poprawnej daty
+                        # Próbujemy znaleźć cokolwiek co wygląda na datę w tej sekcji
+                        for text_block in section.find_all(['span', 'p', 'div']):
+                            content = text_block.get_text(strip=True)
+                            if any(m in content.lower() for m in ['stycznia', 'lutego', 'marca', 'kwietnia', 'maja', 'czerwca', 'lipca', 'sierpnia', 'września', 'października', 'listopada', 'grudnia']):
+                                date = self.parse_date(content, language='pl')
+                                if date:
+                                    break
                     
-                    # Lokalizacja
-                    location_elem = item.find(class_='location') or item.find(class_='place')
-                    location = location_elem.get_text(strip=True) if location_elem else "Słubice"
+                    if not date:
+                        continue  # Pomijamy jeśli nadal brak daty
                     
-                    # Opis
-                    desc_elem = item.find('p') or item.find(class_='description')
+                    # Lokalizacja (często SMOK Słubice)
+                    location = "Słubice"
+                    
+                    # Opis (pierwszy paragraf w sekcji)
+                    desc_elem = section.find('p')
                     description = desc_elem.get_text(strip=True) if desc_elem else ""
-                    
-                    # URL źródła
-                    link_elem = item.find('a')
-                    source_url = link_elem.get('href', url) if link_elem else url
-                    if source_url.startswith('/'):
-                        source_url = f"https://smok.slubice.pl{source_url}"
                     
                     events.append({
                         'title': title,
@@ -105,7 +121,7 @@ class EventScraper:
                     })
                     
                 except Exception as e:
-                    print(f"Błąd podczas parsowania wydarzenia: {e}")
+                    print(f"Błąd podczas parsowania sekcji wydarzenia: {e}")
                     continue
             
         except requests.RequestException as e:
