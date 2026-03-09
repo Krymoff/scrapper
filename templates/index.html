@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalendarz Wydarzeń Pogranicza - Słubice/Frankfurt</title>
+    
+    <!-- FullCalendar CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap CSS (dla lepszego wyglądu) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center mb-4">📅 Kalendarz Wydarzeń Pogranicza</h1>
+                <p class="text-center text-muted mb-4">Słubice / Frankfurt (Oder)</p>
+            </div>
+        </div>
+        
+        <!-- Panel wyszukiwania i filtrów -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="input-group">
+                    <input type="text" 
+                           id="searchInput" 
+                           class="form-control" 
+                           placeholder="Szukaj po mieście (np. 'Słubice') lub dacie (np. 'jutro', '12 maja')...">
+                    <button class="btn btn-primary" id="searchBtn">🔍 Szukaj</button>
+                    <button class="btn btn-secondary" id="clearBtn">Wyczyść</button>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <button class="btn btn-success btn-lg" id="surpriseBtn">🎲 Zaskocz mnie!</button>
+            </div>
+        </div>
+        
+        <!-- Filtry języka -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="languageFilter" id="langAll" value="" checked>
+                    <label class="btn btn-outline-primary" for="langAll">Wszystkie</label>
+                    
+                    <input type="radio" class="btn-check" name="languageFilter" id="langPL" value="PL">
+                    <label class="btn btn-outline-primary" for="langPL">🇵🇱 Polski</label>
+                    
+                    <input type="radio" class="btn-check" name="languageFilter" id="langDE" value="DE">
+                    <label class="btn btn-outline-primary" for="langDE">🇩🇪 Deutsch</label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Kalendarz -->
+        <div class="row">
+            <div class="col-12">
+                <div id="calendar"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal dla "Zaskocz mnie!" -->
+    <div class="modal fade" id="surpriseModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">🎲 Zaskocz mnie!</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="surpriseModalBody">
+                    <p>Ładowanie wydarzenia...</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+                    <a href="#" id="eventLink" target="_blank" class="btn btn-primary">Zobacz więcej</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal dla szczegółów wydarzenia -->
+    <div class="modal fade" id="eventModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="eventModalTitle">Szczegóły wydarzenia</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="eventModalBody">
+                    <!-- Zawartość wczytywana dynamicznie -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+                    <a href="#" id="eventDetailLink" target="_blank" class="btn btn-primary">Zobacz więcej</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- FullCalendar JS -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
