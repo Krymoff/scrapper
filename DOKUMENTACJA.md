@@ -54,6 +54,15 @@ Scraper działa obecnie w trybie **na żądanie (on-demand)**.
 *   **Adres 5000 zajęty**: macOS używa portu 5000 dla "AirPlay Receiver". Aplikacja została domyślnie przeniesiona na port **8080**.
 *   **Problem z lxml**: Starsze wersje biblioteki `lxml` nie kompilowały się na Pythonie 3.13. Wymagana wersja to `>= 5.3.1`.
 
+## 🚀 Wdrożenie na VPS
+Szczegółowa instrukcja instalacji na serwerze Linux (Ubuntu/Debian) znajduje się w pliku:
+**[DEPLOYMENT.md](file:///Users/marcinkrzymuski/Desktop/projekty%20ai/scrapper/DEPLOYMENT.md)**
+
+Obejmuje ona:
+- Konfigurację Gunicorn (serwer produkcyjny).
+- Konfigurację Nginx (Reverse Proxy).
+- Automatyzację (Systemd i Cron).
+
 ## 📈 Plany Rozwoju
 *   Dodanie kolejnych źródeł z Frankfurtu nad Odrą (np. frankfurt-oder.de).
 *   Automatyzacja scrapowania (uruchamianie w tle co X godzin).
