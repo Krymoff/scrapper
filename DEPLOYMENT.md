@@ -1,89 +1,102 @@
-# Instrukcja Wdrożenia na VPS (Deployment Guide)
+# Instrukcja wdrozenia na VPS
 
-Poniżej znajduje się instrukcja, jak zainstalować i uruchomić aplikację na serwerze Linux (np. Ubuntu/Debian).
+Docelowy adres tej aplikacji to:
 
-## 1. Przygotowanie Serwera
-Zaktualizuj system i zainstaluj niezbędne pakiety:
+```text
+https://www.euwt.eu/scrapper/
+```
+
+Repo zawiera gotowe pliki:
+
+- `deploy/scrapper.service`
+- `deploy/nginx.scrapper.conf`
+- `deploy/install_server.sh`
+
+## Najprostsza sciezka
+
+Jesli repo jest juz na serwerze w `/var/www/scrapper`, wystarczy:
+
 ```bash
-sudo apt update
-sudo apt install python3 python3-pip python3-venv sqlite3 nginx git -y
+cd /var/www/scrapper
+sudo bash deploy/install_server.sh
 ```
 
-## 2. Pobranie Kodu
-Sklonuj repozytorium lub prześlij pliki do wybranego katalogu (np. `/var/www/scrapper`):
+To zrobi:
+
+- instalacje pakietow systemowych
+- utworzenie `venv`
+- instalacje zaleznosci Pythona
+- konfiguracje `systemd`
+- konfiguracje `nginx`
+- wlaczenie uslug
+
+Po tym aplikacja powinna odpowiadac pod:
+
+```text
+http://www.euwt.eu/scrapper/
+```
+
+Jesli DNS juz wskazuje na ten serwer, dodaj SSL:
+
 ```bash
-cd /var/www
-git clone <url-twojego-repozytorium> scrapper
-cd scrapper
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d www.euwt.eu
 ```
 
-## 3. Środowisko Wirtualne i Zależności
-Utwórz środowisko wirtualne i zainstaluj pakiety:
+## Co musisz zrobic recznie
+
+1. Upewnic sie, ze domena `www.euwt.eu` wskazuje na ten serwer.
+2. Wgrac repo do `/var/www/scrapper`.
+3. Uruchomic:
+
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-pip install gunicorn  # Serwer produkcyjny
+sudo bash /var/www/scrapper/deploy/install_server.sh
 ```
 
-## 4. Konfiguracja Portu i Produkcji
-W wersji produkcyjnej zaleca się wyłączenie trybu Debug i zmianę portu z powrotem na domyślny lub zarządzany przez Gunicorn.
+4. Opcjonalnie wystawic HTTPS przez certbot.
 
-Uruchomienie testowe Gunicorn:
+## Aktualizacja po zmianach w repo
+
+Po kolejnym `git pull` na serwerze:
+
 ```bash
-gunicorn --bind 0.0.0.0:8080 app:app
+cd /var/www/scrapper
+sudo bash deploy/install_server.sh
+sudo systemctl restart scrapper
 ```
 
-## 5. Automatyzacja Serwera (Systemd)
-Aby aplikacja startowała sama i działała w tle, utwórz plik usługi:
-`sudo nano /etc/systemd/system/scrapper.service`
+## Automatyczne pobieranie wydarzen
 
-Wklej poniższą treść (dostosuj ścieżki):
-```ini
-[Unit]
-Description=Gunicorn instance to serve Scrapper App
-After=network.target
+Jesli chcesz codziennie odswiezac baze:
 
-[Service]
-User=www-data
-Group=www-data
-WorkingDirectory=/var/www/scrapper
-Environment="PATH=/var/www/scrapper/venv/bin"
-ExecStart=/var/www/scrapper/venv/bin/gunicorn --workers 3 --bind unix:scrapper.sock -m 007 app:app
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Uruchom usługę:
 ```bash
-sudo systemctl start scrapper
-sudo systemctl enable scrapper
+crontab -e
 ```
 
-## 6. Automatyzacja Scrapera (Cron)
-Aby scraper sam pobierał dane np. codziennie o 3:00 rano, dodaj wpis do crontaba:
-`crontab -e`
+Dodaj:
 
-Dodaj linię:
 ```bash
-0 3 * * * curl -X POST http://localhost:8080/api/scrape
+0 3 * * * curl -X POST https://www.euwt.eu/scrapper/api/scrape
 ```
-*(Jeśli używasz gniazda unix (sock) w systemd, musisz odwołać się do adresu Nginx).*
 
-## 7. Reverse Proxy (Nginx) - opcjonalnie
-Zaleca się wystawienie aplikacji przez Nginx na porcie 80/443 z certyfikatem SSL (Let's Encrypt).
-`sudo nano /etc/nginx/sites-available/scrapper`
+Jesli SSL nie jest jeszcze aktywne, tymczasowo uzyj:
 
-```nginx
-server {
-    listen 80;
-    server_name twoja-domena.pl;
-
-    location / {
-        include proxy_params;
-        proxy_pass http://unix:/var/www/scrapper/scrapper.sock;
-    }
-}
+```bash
+0 3 * * * curl -X POST http://127.0.0.1/scrapper/api/scrape
 ```
-Następnie: `sudo ln -s /etc/nginx/sites-available/scrapper /etc/nginx/sites-enabled` i `sudo systemctl restart nginx`.
+
+## Diagnostyka
+
+```bash
+sudo systemctl status scrapper
+sudo journalctl -u scrapper -n 100 --no-pager
+sudo nginx -t
+sudo systemctl status nginx
+curl -I http://127.0.0.1/scrapper/
+```
+
+## Uwagi
+
+- Aplikacja jest przygotowana do pracy za reverse proxy pod prefiksem `/scrapper`.
+- Na produkcji nie uruchamiaj jej przez `python app.py`.
+- Ruch powinien isc przez `nginx -> gunicorn -> Flask`.

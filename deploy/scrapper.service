@@ -1,0 +1,15 @@
+[Unit]
+Description=Scrapper Flask application served by Gunicorn
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/scrapper
+Environment="PATH=/var/www/scrapper/venv/bin"
+ExecStart=/var/www/scrapper/venv/bin/gunicorn --workers 3 --bind unix:/var/www/scrapper/scrapper.sock --umask 007 app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

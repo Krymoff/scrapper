@@ -2,6 +2,7 @@
 Główny plik aplikacji Flask - Kalendarz Wydarzeń Pogranicza.
 """
 from flask import Flask, render_template, jsonify, request
+from werkzeug.middleware.proxy_fix import ProxyFix
 from database import Database
 from scraper import EventScraper
 from datetime import datetime
@@ -9,6 +10,7 @@ import dateparser
 
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_prefix=1, x_proto=1, x_host=1)
 db = Database()
 scraper = EventScraper()
 
