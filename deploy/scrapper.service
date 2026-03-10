@@ -7,7 +7,7 @@ User=www-data
 Group=www-data
 WorkingDirectory=/var/www/scrapper
 Environment="PATH=/var/www/scrapper/venv/bin"
-ExecStart=/var/www/scrapper/venv/bin/gunicorn --workers 3 --bind unix:/var/www/scrapper/scrapper.sock --umask 007 app:app
+ExecStart=/var/www/scrapper/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8080 app:app
 Restart=always
 RestartSec=5
 

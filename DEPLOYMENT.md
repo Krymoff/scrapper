@@ -9,7 +9,7 @@ https://www.euwt.eu/scrapper/
 Repo zawiera gotowe pliki:
 
 - `deploy/scrapper.service`
-- `deploy/nginx.scrapper.conf`
+- `deploy/apache.scrapper.conf`
 - `deploy/install_server.sh`
 
 ## Najprostsza sciezka
@@ -27,7 +27,7 @@ To zrobi:
 - utworzenie `venv`
 - instalacje zaleznosci Pythona
 - konfiguracje `systemd`
-- konfiguracje `nginx`
+- konfiguracje `apache2`
 - wlaczenie uslug
 
 Po tym aplikacja powinna odpowiadac pod:
@@ -39,8 +39,8 @@ http://www.euwt.eu/scrapper/
 Jesli DNS juz wskazuje na ten serwer, dodaj SSL:
 
 ```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d www.euwt.eu
+sudo apt install -y certbot python3-certbot-apache
+sudo certbot --apache -d www.euwt.eu
 ```
 
 ## Co musisz zrobic recznie
@@ -90,8 +90,8 @@ Jesli SSL nie jest jeszcze aktywne, tymczasowo uzyj:
 ```bash
 sudo systemctl status scrapper
 sudo journalctl -u scrapper -n 100 --no-pager
-sudo nginx -t
-sudo systemctl status nginx
+sudo apache2ctl configtest
+sudo systemctl status apache2
 curl -I http://127.0.0.1/scrapper/
 ```
 
@@ -99,4 +99,4 @@ curl -I http://127.0.0.1/scrapper/
 
 - Aplikacja jest przygotowana do pracy za reverse proxy pod prefiksem `/scrapper`.
 - Na produkcji nie uruchamiaj jej przez `python app.py`.
-- Ruch powinien isc przez `nginx -> gunicorn -> Flask`.
+- Ruch powinien isc przez `apache2 -> gunicorn -> Flask`.
