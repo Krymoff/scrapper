@@ -34,16 +34,23 @@ class Database:
                 description TEXT,
                 source_url TEXT NOT NULL,
                 language TEXT NOT NULL,
+                tag TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(title, date, source_url)
             )
         """)
+
+        # Dodaj kolumnę tag jeśli baza już istniała
+        cursor.execute("PRAGMA table_info(events)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "tag" not in columns:
+            cursor.execute("ALTER TABLE events ADD COLUMN tag TEXT")
         
         conn.commit()
         conn.close()
     
-    def add_event(self, title: str, date: str, location: str, 
-                  description: str, source_url: str, language: str) -> bool:
+    def add_event(self, title: str, date: str, location: str,
+                  description: str, source_url: str, language: str, tag: str = "inne") -> bool:
         """
         Dodaje wydarzenie do bazy danych.
         
@@ -63,9 +70,9 @@ class Database:
         
         try:
             cursor.execute("""
-                INSERT INTO events (title, date, location, description, source_url, language)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (title, date, location, description, source_url, language))
+                INSERT INTO events (title, date, location, description, source_url, language, tag)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (title, date, location, description, source_url, language, tag))
             conn.commit()
             return True
         except sqlite3.IntegrityError:
@@ -74,7 +81,7 @@ class Database:
         finally:
             conn.close()
     
-    def get_events(self, days_ahead: int = 7, language: Optional[str] = None) -> List[Dict]:
+    def get_events(self, days_ahead: int = 7, language: Optional[str] = None, tag: Optional[str] = None) -> List[Dict]:
         """
         Pobiera wydarzenia na najbliższe dni.
         
@@ -92,12 +99,24 @@ class Database:
         today = datetime.now().strftime("%Y-%m-%d")
         end_date = (datetime.now() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
         
-        if language:
+        if language and tag:
+            cursor.execute("""
+                SELECT * FROM events 
+                WHERE date >= ? AND date <= ? AND language = ? AND tag = ?
+                ORDER BY date ASC
+            """, (today, end_date, language, tag))
+        elif language:
             cursor.execute("""
                 SELECT * FROM events 
                 WHERE date >= ? AND date <= ? AND language = ?
                 ORDER BY date ASC
             """, (today, end_date, language))
+        elif tag:
+            cursor.execute("""
+                SELECT * FROM events 
+                WHERE date >= ? AND date <= ? AND tag = ?
+                ORDER BY date ASC
+            """, (today, end_date, tag))
         else:
             cursor.execute("""
                 SELECT * FROM events 
@@ -110,7 +129,7 @@ class Database:
         
         return events
     
-    def search_events(self, query: str, language: Optional[str] = None) -> List[Dict]:
+    def search_events(self, query: str, language: Optional[str] = None, tag: Optional[str] = None) -> List[Dict]:
         """
         Wyszukuje wydarzenia po lokalizacji lub dacie.
         
@@ -129,13 +148,27 @@ class Database:
         
         search_pattern = f"%{query}%"
         
-        if language:
+        if language and tag:
+            cursor.execute("""
+                SELECT * FROM events 
+                WHERE (location LIKE ? OR title LIKE ? OR description LIKE ?)
+                AND date >= ? AND language = ? AND tag = ?
+                ORDER BY date ASC
+            """, (search_pattern, search_pattern, search_pattern, today, language, tag))
+        elif language:
             cursor.execute("""
                 SELECT * FROM events 
                 WHERE (location LIKE ? OR title LIKE ? OR description LIKE ?)
                 AND date >= ? AND language = ?
                 ORDER BY date ASC
             """, (search_pattern, search_pattern, search_pattern, today, language))
+        elif tag:
+            cursor.execute("""
+                SELECT * FROM events 
+                WHERE (location LIKE ? OR title LIKE ? OR description LIKE ?)
+                AND date >= ? AND tag = ?
+                ORDER BY date ASC
+            """, (search_pattern, search_pattern, search_pattern, today, tag))
         else:
             cursor.execute("""
                 SELECT * FROM events 
@@ -175,6 +208,33 @@ class Database:
         conn.close()
         
         return dict(row) if row else None
+
+    def backfill_tags(self, infer_fn):
+        """
+        Uzupełnia brakujące tagi na podstawie tytułu/opisu.
+
+        Args:
+            infer_fn: funkcja inferująca tag z (title, description)
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, title, description FROM events
+            WHERE tag IS NULL OR tag = ''
+        """)
+        rows = cursor.fetchall()
+        if not rows:
+            conn.close()
+            return
+
+        updates = []
+        for row_id, title, description in rows:
+            tag = infer_fn(title or "", description or "")
+            updates.append((tag, row_id))
+
+        cursor.executemany("UPDATE events SET tag = ? WHERE id = ?", updates)
+        conn.commit()
+        conn.close()
     
     def clear_old_events(self, days_old: int = 30):
         """

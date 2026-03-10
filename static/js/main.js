@@ -5,21 +5,11 @@
 
 let currentLanguage = '';
 let currentSearch = '';
-let currentDate = new Date(); // Środek aktualnego widoku tygodnia
-
+let currentTag = '';
 document.addEventListener('DOMContentLoaded', function () {
     setupEventListeners();
-    renderCalendar();
-});
-
-/**
- * Renderuje szkielet kalendarza i ładuje wydarzenia
- */
-function renderCalendar() {
-    renderHeaders();
-    renderTimeColumn();
     loadEvents();
-}
+});
 
 /**
  * Ustawia nasłuchiwacze zdarzeń
@@ -31,21 +21,7 @@ function setupEventListeners() {
         if (e.key === 'Enter') performSearch();
     });
 
-    // Nawigacja datami (Chevron Left/Right i Dziś)
-    document.getElementById('prevBtn').addEventListener('click', () => {
-        currentDate.setDate(currentDate.getDate() - 7);
-        renderCalendar();
-    });
-    document.getElementById('nextBtn').addEventListener('click', () => {
-        currentDate.setDate(currentDate.getDate() + 7);
-        renderCalendar();
-    });
-    document.getElementById('todayBtn').addEventListener('click', () => {
-        currentDate = new Date();
-        renderCalendar();
-    });
-
-    // Filtry (przyciski) - obsługujemy jak toggle lub zwykłe filtrowanie
+    // Filtry językowe (przyciski) - obsługujemy jak toggle
     const filterBtns = document.querySelectorAll('.filter-btn');
     if (filterBtns.length > 0) {
         filterBtns.forEach(btn => {
@@ -62,16 +38,6 @@ function setupEventListeners() {
             });
         });
     }
-
-    // Dodanie akcji dla starych przycisków, np. "Koncerty" - dla spójności UI (wizualne wciśnięcie, bez backendowej logiki językowej)
-    const allCatBtns = document.querySelectorAll('#filtersContainer button:not(.filter-btn)');
-    allCatBtns.forEach(btn => {
-        btn.addEventListener('click', function () {
-            // Wyczyść wyszukiwarkę itp. w ramach 'demo' integracji
-            document.getElementById('searchInput').value = this.innerText;
-            performSearch();
-        });
-    });
 
     // Przycisk "Pobierz nowe"
     document.getElementById('scrapeBtn').addEventListener('click', function () {
@@ -105,71 +71,6 @@ function setupEventListeners() {
 }
 
 /**
- * Renderuje nagłówki dni (Pon - Ndz)
- */
-function renderHeaders() {
-    const headerRow = document.getElementById('calendarHeader');
-    const startOfWeek = getStartOfWeek(currentDate);
-
-    // Zostaw pusty narożnik
-    const timePlaceholder = headerRow.firstElementChild;
-    headerRow.innerHTML = '';
-    headerRow.appendChild(timePlaceholder);
-
-    const days = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Ndz'];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (let i = 0; i < 7; i++) {
-        const dayDate = new Date(startOfWeek);
-        dayDate.setDate(startOfWeek.getDate() + i);
-
-        const isToday = dayDate.getTime() === today.getTime();
-        const isSunday = i === 6;
-
-        const dayDiv = document.createElement('div');
-        dayDiv.className = `p-4 text-center border-l border-slate-100 dark:border-slate-700/50 ${isToday ? 'bg-primary/5' : ''}`;
-
-        dayDiv.innerHTML = `
-            <p class="text-xs font-bold ${isToday ? 'text-primary' : (isSunday ? 'text-red-400' : 'text-slate-400 dark:text-slate-500')} uppercase tracking-widest">${days[i]}</p>
-            <p class="text-xl font-bold ${isToday ? 'text-primary' : 'text-slate-700 dark:text-slate-200'}">${dayDate.getDate()}</p>
-            ${isToday ? '<div class="mt-1 w-1.5 h-1.5 bg-primary rounded-full mx-auto"></div>' : ''}
-        `;
-        headerRow.appendChild(dayDiv);
-    }
-
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-
-    // Format Month
-    const months = ['Stycznia', 'Lutego', 'Marca', 'Kwietnia', 'Maja', 'Czerwca', 'Lipca', 'Sierpnia', 'Września', 'Października', 'Listopada', 'Grudnia'];
-    const sMonth = months[startOfWeek.getMonth()];
-    const eMonth = months[endOfWeek.getMonth()];
-
-    let rangeText = '';
-    if (startOfWeek.getMonth() === endOfWeek.getMonth()) {
-        rangeText = `${startOfWeek.getDate()} - ${endOfWeek.getDate()} ${sMonth} ${startOfWeek.getFullYear()}`;
-    } else {
-        rangeText = `${startOfWeek.getDate()} ${sMonth} - ${endOfWeek.getDate()} ${eMonth} ${startOfWeek.getFullYear()}`;
-    }
-    document.getElementById('currentDateRange').textContent = rangeText;
-}
-
-/**
- * Renderuje kolumnę czasu
- */
-function renderTimeColumn() {
-    const timeColumn = document.getElementById('timeColumn');
-    timeColumn.innerHTML = '';
-    for (let h = 8; h <= 20; h += 2) {
-        const hourDiv = document.createElement('div');
-        hourDiv.className = 'h-24 p-2 text-right';
-        hourDiv.innerHTML = `<span class="text-xs font-medium text-slate-400 dark:text-slate-500">${h.toString().padStart(2, '0')}:00</span>`;
-        timeColumn.appendChild(hourDiv);
-    }
-}
-
-/**
  * Pobiera wydarzenia i czyści stare
  */
 function loadEvents() {
@@ -180,63 +81,67 @@ function loadEvents() {
     fetch(url)
         .then(res => res.json())
         .then(data => {
+            const allEvents = data.map(ensureTag);
             clearEventCards();
-            data.forEach(renderEventCard);
+            renderTagList(allEvents);
+            const filtered = applyTagFilter(allEvents);
+            const sorted = sortEvents(filtered);
+            updateEventsCount(sorted.length);
+            renderEmptyStateIfNeeded(sorted);
+            sorted.forEach(renderEventTile);
         })
         .catch(err => console.error(err));
 }
 
 function clearEventCards() {
-    document.querySelectorAll('.event-card-container').forEach(c => c.remove());
+    const list = document.getElementById('eventsList');
+    if (list) list.innerHTML = '';
 }
 
 /**
- * Renderuje kartę dla jednego wydarzenia bazując na koordynatach siatki Stitch
+ * Renderuje kafelek dla jednego wydarzenia
  */
-function renderEventCard(event) {
-    const dateStr = event.start.includes(' ') ? event.start.replace(' ', 'T') : event.start + 'T00:00:00';
-    const eventDate = new Date(dateStr);
-    const startOfWeek = getStartOfWeek(currentDate);
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 7);
+function renderEventTile(event) {
+    const list = document.getElementById('eventsList');
+    if (!list) return;
 
-    if (eventDate < startOfWeek || eventDate >= endOfWeek) return;
+    const dateStrSafe = event.start.includes(' ') ? event.start.replace(' ', 'T') : event.start + 'T00:00:00';
+    const eventDate = new Date(dateStrSafe);
+    const hasTime = event.start.includes(' ');
+    const dateStr = eventDate.toLocaleDateString('pl-PL', {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: hasTime ? '2-digit' : undefined,
+        minute: hasTime ? '2-digit' : undefined
+    });
 
-    const dayIndex = (eventDate.getDay() + 6) % 7;
-    const column = document.querySelector(`.day-column.day-${dayIndex}`);
-    if (!column) return;
+    const tag = event.tag || 'inne';
+    const tagColor = getTagColor(tag);
 
-    // Przeliczenie top: 8:00 to 0px, jedna godzina = 48px
-    const hour = eventDate.getHours();
-    const minutes = eventDate.getMinutes();
-    const top = Math.max(0, (hour - 8) * 48 + (minutes / 60) * 48);
-
-    // Kategoryzacja kolorów - jak w legendzie ze stitch (Edukacja=niebieski, Sztuka=pomarańczowy, Muzyka=fioletowy)
-    let colorClass = 'blue';
-    const titleLower = event.title.toLowerCase();
-
-    if (titleLower.includes('koncert') || titleLower.includes('muzyka') || titleLower.includes('metal') || titleLower.includes('jazz')) {
-        colorClass = 'purple';
-    } else if (titleLower.includes('wystawa') || titleLower.includes('sztuka') || titleLower.includes('galeria') || titleLower.includes('pro arte')) {
-        colorClass = 'amber';
-    }
-
-    const cardContainer = document.createElement('div');
-    cardContainer.className = 'absolute inset-x-1 z-10 event-card-container';
-    cardContainer.style.top = `${top}px`;
-    cardContainer.style.height = '60px'; // Domyślnie 60px wysokości
-
-    // Dokładnie te same klasy co u Stitcha
-    cardContainer.innerHTML = `
-        <div class="h-full bg-${colorClass}-50 dark:bg-${colorClass}-900/30 border-l-4 border-${colorClass}-500 rounded-lg p-2 shadow-sm cursor-pointer hover:shadow-md transition-shadow group">
-            <p class="text-[10px] font-bold text-${colorClass}-600 dark:text-${colorClass}-400 uppercase">${hour.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}</p>
-            <h3 class="text-xs font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-primary transition-colors" title="${event.title}">${event.title}</h3>
-            <p class="text-[10px] text-slate-500 dark:text-slate-400 truncate">${event.location || 'Nie podano lokalizacji'}</p>
+    const tile = document.createElement('div');
+    tile.className = 'event-tile min-h-[220px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm cursor-pointer';
+    tile.innerHTML = `
+        <div class="flex items-center justify-between gap-3 mb-3">
+            <span class="text-xs font-semibold uppercase tracking-widest text-${tagColor}-600 dark:text-${tagColor}-400 bg-${tagColor}-50 dark:bg-${tagColor}-900/30 px-2.5 py-1 rounded-full">${tag}</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400">${event.language}</span>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white leading-snug mb-2">${event.title}</h3>
+        <div class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-base">schedule</span>
+                <span>${dateStr}</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-base">location_on</span>
+                <span>${event.location || 'Nie podano lokalizacji'}</span>
+            </div>
         </div>
     `;
 
-    cardContainer.addEventListener('click', () => showEventModal(event));
-    column.appendChild(cardContainer);
+    tile.addEventListener('click', () => showEventModal(event));
+    list.appendChild(tile);
 }
 
 function performSearch() {
@@ -250,9 +155,14 @@ function showEventModal(event) {
     const body = document.getElementById('eventModalBody');
     const dateStrSafe = event.start.includes(' ') ? event.start.replace(' ', 'T') : event.start + 'T00:00:00';
     const dateStr = new Date(dateStrSafe).toLocaleDateString('pl-PL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const tag = event.tag || 'inne';
 
     body.innerHTML = `
         <div class="space-y-3">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-sm">sell</span>
+                <span class="font-medium">Tag: ${tag}</span>
+            </div>
             <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-primary text-sm">calendar_today</span>
                 <span class="font-medium">${dateStr}</span>
@@ -287,12 +197,12 @@ function showRandomEvent() {
                 link.classList.add('hidden');
                 return;
             }
-            const dateStrSafe = data.date.includes(' ') ? data.date.replace(' ', 'T') : data.date + 'T00:00:00';
-            const dateStr = new Date(dateStrSafe).toLocaleDateString('pl-PL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const dateStrSafe = data.date.includes(' ') ? data.date.replace(' ', 'T') : data.date + 'T00:00:00';
+    const dateStr = new Date(dateStrSafe).toLocaleDateString('pl-PL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
             body.innerHTML = `
                 <div class="space-y-4">
                     <h4 class="text-lg font-bold text-primary">${data.title}</h4>
-                    <p class="text-sm"><strong>Data:</strong> ${dateStr}<br><strong>Miejsce:</strong> ${data.location || 'Brak'}<br><strong>Język:</strong> ${data.language}</p>
+                    <p class="text-sm"><strong>Data:</strong> ${dateStr}<br><strong>Miejsce:</strong> ${data.location || 'Brak'}<br><strong>Język:</strong> ${data.language}<br><strong>Tag:</strong> ${data.tag || 'inne'}</p>
                     ${data.description ? `<p class="text-sm italic mt-2 text-slate-500">"${data.description.substring(0, 100)}..."</p>` : ''}
                 </div>
             `;
@@ -305,11 +215,105 @@ function showRandomEvent() {
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-function getStartOfWeek(d) {
-    const date = new Date(d);
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    const start = new Date(date.setDate(diff));
-    start.setHours(0, 0, 0, 0);
-    return start;
+function ensureTag(event) {
+    if (!event.tag) event.tag = 'inne';
+    return event;
+}
+
+function getTagColor(tag) {
+    const map = {
+        'koncert': 'purple',
+        'przedstawienie': 'rose',
+        'wystawa': 'amber',
+        'film': 'blue',
+        'sport': 'emerald',
+        'warsztaty': 'teal',
+        'spotkanie': 'indigo',
+        'inne': 'slate'
+    };
+    return map[tag] || 'slate';
+}
+
+function renderTagList(events) {
+    const tagList = document.getElementById('tagList');
+    if (!tagList) return;
+    const tags = new Set();
+    events.forEach(e => tags.add((e.tag || 'inne').toLowerCase()));
+
+    const sorted = Array.from(tags).sort((a, b) => a.localeCompare(b));
+    tagList.innerHTML = '';
+    const allBtn = buildTagButton('', 'Wszystkie');
+    tagList.appendChild(allBtn);
+
+    if (sorted.length === 0) {
+        const empty = document.createElement('span');
+        empty.className = 'text-sm text-slate-400';
+        empty.textContent = 'Brak tagów';
+        tagList.appendChild(empty);
+        return;
+    }
+    sorted.forEach(tag => {
+        const chip = buildTagButton(tag, tag);
+        tagList.appendChild(chip);
+    });
+}
+
+function buildTagButton(tagValue, label) {
+    const isActive = (tagValue || '') === (currentTag || '');
+    const color = tagValue ? getTagColor(tagValue) : 'slate';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.tag = tagValue;
+    btn.className = `whitespace-nowrap px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-widest border transition-colors ${
+        isActive
+            ? `bg-${color}-600 text-white border-${color}-600`
+            : `bg-${color}-50 dark:bg-${color}-900/30 text-${color}-600 dark:text-${color}-400 border-${color}-200/60 dark:border-${color}-800/60 hover:border-${color}-400`
+    }`;
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+        currentTag = (currentTag || '') === (tagValue || '') ? '' : (tagValue || '');
+        loadEvents();
+    });
+    return btn;
+}
+
+function sortEvents(events) {
+    return [...events].sort((a, b) => {
+        const aTime = parseEventDate(a.start);
+        const bTime = parseEventDate(b.start);
+        return aTime - bTime;
+    });
+}
+
+function applyTagFilter(events) {
+    if (!currentTag) return events;
+    return events.filter((event) => (event.tag || 'inne').toLowerCase() === currentTag.toLowerCase());
+}
+
+function parseEventDate(dateStr) {
+    const safe = dateStr.includes(' ') ? dateStr.replace(' ', 'T') : dateStr + 'T00:00:00';
+    const time = new Date(safe).getTime();
+    return Number.isNaN(time) ? 0 : time;
+}
+
+function updateEventsCount(count) {
+    const countNode = document.getElementById('eventsCount');
+    if (!countNode) return;
+    countNode.textContent = `${count} zapisanych wydarzen`;
+}
+
+function renderEmptyStateIfNeeded(events) {
+    if (events.length > 0) return;
+    const list = document.getElementById('eventsList');
+    if (!list) return;
+
+    const empty = document.createElement('div');
+    empty.className = 'w-full bg-white dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-8 text-center text-slate-500 dark:text-slate-400';
+    empty.innerHTML = `
+        <div class="flex flex-col items-center gap-2">
+            <span class="material-symbols-outlined text-3xl text-slate-400">event_busy</span>
+            <p>Brak wydarzen dla aktualnych filtrow.</p>
+        </div>
+    `;
+    list.appendChild(empty);
 }

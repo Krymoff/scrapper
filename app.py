@@ -12,6 +12,24 @@ app = Flask(__name__)
 db = Database()
 scraper = EventScraper()
 
+def infer_tag(title: str, description: str) -> str:
+    text = f"{title} {description}".lower()
+    rules = [
+        ("koncert", ["koncert", "muzyka", "jazz", "metal", "rock", "pop", "dj"]),
+        ("przedstawienie", ["teatr", "spektakl", "przedstawienie", "opera", "balet"]),
+        ("wystawa", ["wystawa", "galeria", "sztuka", "wernisaż", "expo"]),
+        ("film", ["kino", "film", "seans"]),
+        ("sport", ["sport", "mecz", "turniej", "bieg", "maraton"]),
+        ("warsztaty", ["warsztat", "szkolenie", "kurs"]),
+        ("spotkanie", ["spotkanie", "wykład", "prelekcja", "debata", "konferencja"]),
+    ]
+    for tag, keywords in rules:
+        if any(k in text for k in keywords):
+            return tag
+    return "inne"
+
+# Uzupełnij brakujące tagi w istniejących rekordach
+db.backfill_tags(infer_tag)
 
 @app.route('/')
 def index():
@@ -22,18 +40,21 @@ def index():
 @app.route('/api/events')
 def get_events():
     """
-    API endpoint zwracający wydarzenia na najbliższe 7 dni.
-    Obsługuje parametry: language, search
+    API endpoint zwracający przyszłe wydarzenia.
+    Obsługuje parametry: language, search, tag
     """
     language = request.args.get('language', None)
     search_query = request.args.get('search', None)
+    tag = request.args.get('tag', None)
+    if tag == "":
+        tag = None
     
     if search_query:
         # Wyszukiwanie po zapytaniu
-        events = db.search_events(search_query, language)
+        events = db.search_events(search_query, language, tag)
     else:
-        # Standardowe wydarzenia na 7 dni
-        events = db.get_events(days_ahead=7, language=language)
+        # Standardowe przyszłe wydarzenia
+        events = db.get_events(days_ahead=365, language=language, tag=tag)
     
     # Formatowanie dla FullCalendar
     formatted_events = []
@@ -45,7 +66,8 @@ def get_events():
             'location': event['location'],
             'description': event['description'],
             'source_url': event['source_url'],
-            'language': event['language']
+            'language': event['language'],
+            'tag': event.get('tag') or 'inne'
         })
     
     return jsonify(formatted_events)
@@ -67,7 +89,8 @@ def get_random_event():
             'location': event['location'],
             'description': event['description'],
             'source_url': event['source_url'],
-            'language': event['language']
+            'language': event['language'],
+            'tag': event.get('tag') or 'inne'
         })
     else:
         return jsonify({'error': 'Brak dostępnych wydarzeń'}), 404
@@ -90,7 +113,8 @@ def scrape_events():
                 location=event['location'],
                 description=event['description'],
                 source_url=event['source_url'],
-                language=event['language']
+                language=event['language'],
+                tag=infer_tag(event.get('title', ''), event.get('description', ''))
             ):
                 added_count += 1
         
@@ -111,6 +135,9 @@ def search_events():
     """
     query = request.args.get('q', '')
     language = request.args.get('language', None)
+    tag = request.args.get('tag', None)
+    if tag == "":
+        tag = None
     
     if not query:
         return jsonify([])
@@ -129,11 +156,11 @@ def search_events():
     
     if parsed_date:
         # Wyszukiwanie po dacie
-        events = db.get_events(days_ahead=365, language=language)
+        events = db.get_events(days_ahead=365, language=language, tag=tag)
         events = [e for e in events if e['date'] == parsed_date]
     else:
         # Wyszukiwanie po tekście (miasto, tytuł, opis)
-        events = db.search_events(query, language)
+        events = db.search_events(query, language, tag)
     
     formatted_events = []
     for event in events:
@@ -144,7 +171,8 @@ def search_events():
             'location': event['location'],
             'description': event['description'],
             'source_url': event['source_url'],
-            'language': event['language']
+            'language': event['language'],
+            'tag': event.get('tag') or 'inne'
         })
     
     return jsonify(formatted_events)

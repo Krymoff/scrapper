@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Kalendarz Wydarzeń Pogranicza</title>
+    <title>Wydarzenia Pogranicza</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
         rel="stylesheet" />
@@ -34,11 +34,6 @@
             font-family: 'Inter', sans-serif;
         }
 
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: 80px repeat(7, 1fr);
-        }
-
         .scrollbar-hide::-webkit-scrollbar {
             display: none;
         }
@@ -48,23 +43,50 @@
             scrollbar-width: none;
         }
 
-        .event-card {
+        .event-tile {
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .event-card:hover {
+        .event-tile:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
         }
 
-        /* Day background grid lines */
-        .day-column {
-            background-image: linear-gradient(to bottom, transparent 47px, #f1f5f9 47px, #f1f5f9 48px);
-            background-size: 100% 48px;
+        .events-rail {
+            scroll-snap-type: x proximity;
+            -webkit-overflow-scrolling: touch;
         }
 
-        .dark .day-column {
-            background-image: linear-gradient(to bottom, transparent 47px, #334155 47px, #334155 48px);
+        .events-rail::-webkit-scrollbar {
+            height: 10px;
+        }
+
+        .events-rail::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.35);
+            border-radius: 9999px;
+        }
+
+        .event-tile {
+            scroll-snap-align: start;
+            flex: 0 0 calc(25% - 12px);
+        }
+
+        @media (max-width: 1279px) {
+            .event-tile {
+                flex-basis: calc(33.333% - 11px);
+            }
+        }
+
+        @media (max-width: 1023px) {
+            .event-tile {
+                flex-basis: calc(50% - 8px);
+            }
+        }
+
+        @media (max-width: 639px) {
+            .event-tile {
+                flex-basis: 85%;
+            }
         }
     </style>
 </head>
@@ -75,11 +97,10 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div class="flex items-center gap-4">
                 <div class="bg-primary/10 p-3 rounded-xl">
-                    <span class="material-symbols-outlined text-primary text-3xl">calendar_month</span>
+                    <span class="material-symbols-outlined text-primary text-3xl">event</span>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Kalendarz Wydarzeń
-                        Pogranicza</h1>
+                    <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Wydarzenia Pogranicza</h1>
                     <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
                         <span class="material-symbols-outlined text-sm">location_on</span>
                         <span>Słubice / Frankfurt (Oder)</span>
@@ -113,47 +134,26 @@
         <!-- Top Actions Bar -->
         <div
             class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-700/60">
-            <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
-                <button
-                    class="px-4 py-1.5 text-sm font-semibold rounded-md transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900">Dzień</button>
-                <button
-                    class="px-4 py-1.5 text-sm font-semibold rounded-md transition-all bg-white dark:bg-slate-800 text-primary shadow-sm">Tydzień</button>
-                <button
-                    class="px-4 py-1.5 text-sm font-semibold rounded-md transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900">Miesiąc</button>
+            <div class="flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                <span class="material-symbols-outlined text-base">view_list</span>
+                <span>Lista wydarzeń</span>
             </div>
             <div class="flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-1 mr-4">
-                    <button id="prevBtn"
-                        class="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
-                        <span class="material-symbols-outlined text-slate-600 dark:text-slate-300">chevron_left</span>
-                    </button>
-                    <span id="currentDateRange"
-                        class="text-sm font-bold px-2 text-slate-700 dark:text-slate-200">Ładowanie...</span>
-                    <button id="nextBtn"
-                        class="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
-                        <span class="material-symbols-outlined text-slate-600 dark:text-slate-300">chevron_right</span>
-                    </button>
-                    <button id="todayBtn"
-                        class="ml-2 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors">Dziś</button>
-                </div>
-                <div class="h-8 w-px bg-slate-200 dark:bg-slate-700 hidden lg:block mx-2"></div>
-                <div class="flex items-center gap-3">
-                    <button id="scrapeBtn"
-                        class="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-semibold text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
-                        <span class="material-symbols-outlined text-lg">sync</span>
-                        <span>Pobierz nowe</span>
-                    </button>
-                    <button id="surpriseBtn"
-                        class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-all shadow-md shadow-primary/20">
-                        <span class="material-symbols-outlined text-lg">casino</span>
-                        <span>Zaskocz mnie!</span>
-                    </button>
-                </div>
+                <button id="scrapeBtn"
+                    class="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-semibold text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                    <span class="material-symbols-outlined text-lg">sync</span>
+                    <span>Pobierz nowe</span>
+                </button>
+                <button id="surpriseBtn"
+                    class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-all shadow-md shadow-primary/20">
+                    <span class="material-symbols-outlined text-lg">casino</span>
+                    <span>Zaskocz mnie!</span>
+                </button>
             </div>
         </div>
 
         <!-- Filters -->
-        <div class="flex items-center gap-3 mb-6 overflow-x-auto pb-2 scrollbar-hide" id="filtersContainer">
+        <div class="flex items-center gap-3 mb-4 overflow-x-auto pb-2 scrollbar-hide" id="filtersContainer">
             <span class="text-sm font-semibold text-slate-500 dark:text-slate-400 mr-2">Język:</span>
             <button data-lang=""
                 class="filter-btn active whitespace-nowrap px-4 py-1.5 rounded-full bg-primary text-white text-sm font-medium shadow-sm transition-colors">Wszystkie</button>
@@ -161,59 +161,31 @@
                 class="filter-btn whitespace-nowrap px-4 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-medium hover:border-primary/50 transition-colors">Polski</button>
             <button data-lang="DE"
                 class="filter-btn whitespace-nowrap px-4 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-medium hover:border-primary/50 transition-colors">Deutsch</button>
-            <div class="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
-            <button
-                class="whitespace-nowrap px-4 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-medium hover:border-primary/50 transition-colors">Koncerty</button>
-            <button
-                class="whitespace-nowrap px-4 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-medium hover:border-primary/50 transition-colors">Sport</button>
-            <button
-                class="whitespace-nowrap px-4 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-sm font-medium hover:border-primary/50 transition-colors">Kultura</button>
         </div>
 
-        <!-- Weekly Grid -->
-        <div
-            class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <div id="calendarHeader" class="calendar-grid border-b border-slate-200 dark:border-slate-700">
-                <div class="p-4 bg-slate-50 dark:bg-slate-900/50"></div>
-                <!-- Days will be injected here -->
-            </div>
+        <!-- Tags -->
+        <div class="flex items-center gap-3 mb-6 overflow-x-auto pb-2 scrollbar-hide" id="tagsContainer">
+            <span class="text-sm font-semibold text-slate-500 dark:text-slate-400 mr-2">Tagi:</span>
+            <div id="tagList" class="flex items-center gap-2"></div>
+        </div>
 
-            <!-- Grid Content -->
-            <div class="relative">
-                <div class="calendar-grid min-h-[600px] border-l border-transparent">
-                    <!-- Time column -->
-                    <div id="timeColumn" class="border-r border-slate-100 dark:border-slate-700/50">
-                        <!-- Hours will be injected here -->
-                    </div>
-                    <!-- Day columns will be injected here -->
-                    <div class="day-column relative day-0 border-l border-slate-100 dark:border-slate-700/50"></div>
-                    <div class="day-column relative day-1 border-l border-slate-100 dark:border-slate-700/50"></div>
-                    <div class="day-column relative day-2 border-l border-slate-100 dark:border-slate-700/50"></div>
-                    <div class="day-column relative day-3 border-l border-slate-100 dark:border-slate-700/50"></div>
-                    <div class="day-column relative day-4 border-l border-slate-100 dark:border-slate-700/50"></div>
-                    <div class="day-column relative day-5 border-l border-slate-100 dark:border-slate-700/50"></div>
-                    <div class="day-column relative day-6 border-l border-slate-100 dark:border-slate-700/50"></div>
-                </div>
+        <!-- Events List -->
+        <div class="space-y-3">
+            <div class="flex items-center justify-between gap-4">
+                <p class="text-sm text-slate-500 dark:text-slate-400">
+                    Widoczne są 4 kolejne wydarzenia. Przewiń w bok, aby zobaczyć następne.
+                </p>
+                <span id="eventsCount" class="text-sm font-semibold text-slate-600 dark:text-slate-300"></span>
+            </div>
+            <div id="eventsList"
+                class="events-rail flex gap-4 overflow-x-auto pb-4">
+                <!-- Event tiles will be injected here -->
             </div>
         </div>
 
-        <!-- Legend / Footer Stats -->
+        <!-- Footer Stats -->
         <footer
             class="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 dark:text-slate-400 text-sm">
-            <div class="flex items-center gap-6">
-                <div class="flex items-center gap-2">
-                    <span class="w-3 h-3 rounded-full bg-blue-500"></span>
-                    <span>Edukacja</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="w-3 h-3 rounded-full bg-amber-500"></span>
-                    <span>Sztuka</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="w-3 h-3 rounded-full bg-purple-500"></span>
-                    <span>Muzyka</span>
-                </div>
-            </div>
             <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-sm">info</span>
                 <span id="lastUpdateText">Ostatnia aktualizacja: Dzisiaj, 09:15</span>
